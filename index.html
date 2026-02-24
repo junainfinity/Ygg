@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VibeAgent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        /* Light Mode Defaults - Clean macOS Style */
+        --mac-bg: #ffffff;
+        --mac-sidebar: #f2f2f7; /* Standard macOS Sidebar Gray */
+        --mac-border: #e5e5ea;  /* Light Gray Border */
+        --mac-active: #007aff20; /* Light Blue Tint */
+        --mac-hover: #f5f5f7;
+        --mac-text: #1c1c1e;    /* Near Black */
+        --mac-text-muted: #8e8e93;
+        --mac-surface: #ffffff;
+        --mac-surface-2: #f2f2f7;
+        --mac-input-bg: #ffffff;
+      }
+
+      /* Dark Mode Overrides - Deep "Pro" Black Theme */
+      .dark {
+        --mac-bg: #000000;       /* Deep Black */
+        --mac-sidebar: #1c1c1e;  /* Dark Gray Sidebar */
+        --mac-border: #38383a;   /* Subtle dark borders */
+        --mac-active: #2c2c2e;
+        --mac-hover: #2c2c2e;
+        --mac-text: #ffffff;
+        --mac-text-muted: #98989d;
+        --mac-surface: #1c1c1e;  /* Cards/Bubbles */
+        --mac-surface-2: #2c2c2e;
+        --mac-input-bg: #1c1c1e;
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--mac-border);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--mac-text-muted);
+      }
+
+      body {
+        background-color: var(--mac-bg);
+        color: var(--mac-text);
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              mac: {
+                bg: 'var(--mac-bg)',
+                sidebar: 'var(--mac-sidebar)',
+                border: 'var(--mac-border)',
+                active: 'var(--mac-active)',
+                hover: 'var(--mac-hover)',
+                text: 'var(--mac-text)',
+                muted: 'var(--mac-text-muted)',
+                surface: 'var(--mac-surface)',
+                surface2: 'var(--mac-surface-2)',
+                input: 'var(--mac-input-bg)',
+                blue: '#007aff',
+              }
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "uuid": "https://esm.sh/uuid@^13.0.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-mac-bg text-mac-text overflow-hidden transition-colors duration-200">
+    <div id="root"></div>
+  </body>
+</html>

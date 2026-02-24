@@ -1,0 +1,7 @@
+{
+  "name": "VibeAgent Desktop",
+  "description": "A professional, desktop interface for VibeAgent, focused on coding and productivity tasks.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
