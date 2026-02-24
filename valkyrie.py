@@ -23,8 +23,12 @@ memory_config = {
 try:
     memory = Memory.from_config(memory_config)
 except Exception as e:
-    print(f"Warning: Could not initialize mem0 with config, falling back to default. Error: {e}")
-    memory = Memory()
+    print(f"Warning: Could not initialize mem0 with config. Error: {e}")
+    try:
+        memory = Memory()
+    except Exception as e2:
+        print(f"Warning: Could not initialize default mem0 either. Error: {e2}")
+        memory = None
 
 # Initialize OpenAI connection point to OSM API
 OSM_API_KEY = os.environ.get("OSM_API_KEY")
@@ -38,30 +42,47 @@ def execute_python_in_docker(code_string: str) -> str:
     """
     Executes Python code inside a temporary, isolated Docker container using the docker library.
     """
-    docker_client = docker.from_env()
-    
-    with tempfile.TemporaryDirectory() as temp_dir:
-        script_path = os.path.join(temp_dir, "script.py")
-        with open(script_path, "w") as f:
-            f.write(code_string)
-            
+    try:
+        docker_client = docker.from_env()
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            script_path = os.path.join(temp_dir, "script.py")
+            with open(script_path, "w") as f:
+                f.write(code_string)
+                
+            try:
+                # We use python:3.9-slim, mount the temp directory, run it, and remove the container afterwards.
+                # network_mode="none" ensures standard network isolation.
+                container_output = docker_client.containers.run(
+                    image="python:3.9-slim",
+                    command=["python", "/tmp/script.py"],
+                    volumes={temp_dir: {'bind': '/tmp', 'mode': 'ro'}},
+                    remove=True,              # Delete container after execution
+                    network_mode="none",      # Isolate network access
+                    mem_limit="128m",         # Cap memory
+                    cpu_quota=50000           # Limit CPU usage
+                )
+                return container_output.decode('utf-8')
+            except docker.errors.ContainerError as e:
+                return f"Container execution error: {e.stderr.decode('utf-8')}"
+    except Exception as e:
+        # Fallback to simple subprocess execution if docker is not available
+        import subprocess
+        print(f" [!] Docker execution failed ({e}). Falling back to local execution.")
         try:
-            # We use python:3.9-slim, mount the temp directory, run it, and remove the container afterwards.
-            # network_mode="none" ensures standard network isolation.
-            container_output = docker_client.containers.run(
-                image="python:3.9-slim",
-                command=["python", "/tmp/script.py"],
-                volumes={temp_dir: {'bind': '/tmp', 'mode': 'ro'}},
-                remove=True,              # Delete container after execution
-                network_mode="none",      # Isolate network access
-                mem_limit="128m",         # Cap memory
-                cpu_quota=50000           # Limit CPU usage
-            )
-            return container_output.decode('utf-8')
-        except docker.errors.ContainerError as e:
-            return f"Container execution error: {e.stderr.decode('utf-8')}"
-        except Exception as e:
-            return f"Execution failed: {str(e)}"
+            with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as f:
+                f.write(code_string)
+                temp_file_name = f.name
+            
+            result = subprocess.run(["python", temp_file_name], capture_output=True, text=True, timeout=10)
+            os.remove(temp_file_name)
+            
+            if result.returncode == 0:
+                return result.stdout
+            else:
+                return f"Execution error: {result.stderr}"
+        except Exception as inner_e:
+             return f"Execution failed locally too: {str(inner_e)}"
 
 def on_message(channel, method_frame, header_frame, body):
     """
@@ -78,21 +99,32 @@ def on_message(channel, method_frame, header_frame, body):
     try:
         # Send task to the custom OSM API endpoint
         response = client.chat.completions.create(
-            model="default-model", # Replace with actual expected model name
+            model="gpt-4o", # Using a supported model from OSM API
             messages=[
-                {"role": "system", "content": "You are Valkyrie, a decentralized worker node."},
+                {"role": "system", "content": "You are Valkyrie, a decentralized worker node. When asked to perform a coding task, provide only the python code inside a ```python ``` codeblock."},
                 {"role": "user", "content": f"Task: {task_content}"}
             ]
         )
         
         reply = response.choices[0].message.content
-        print(f" [x] Task Processed. Response: {reply}")
+        print(f" [x] Task Processed. Response:\n{reply}")
+        
+        # Check if python code is present and execute it
+        import re
+        code_blocks = re.findall(r'```python\n(.*?)\n```', reply, re.DOTALL)
+        if code_blocks:
+            for i, code in enumerate(code_blocks):
+                print(f" [*] Executing python code block {i+1}...")
+                execution_result = execute_python_in_docker(code)
+                print(f" [x] Execution Result:\n{execution_result}")
+                reply += f"\n\nExecution Result:\n{execution_result}"
         
         # Store context/interaction into local mem0 database
-        try:
-            memory.add(f"Task: {task_content} \nResult: {reply}", user_id="valkyrie_node")
-        except Exception as e:
-            print(f" [!] Warning: Could not save to mem0: {e}")
+        if memory:
+            try:
+                memory.add(f"Task: {task_content} \nResult: {reply}", user_id="valkyrie_node")
+            except Exception as e:
+                print(f" [!] Warning: Could not save to mem0: {e}")
 
     except Exception as e:
         print(f" [!] Error during LLM processing: {e}")
